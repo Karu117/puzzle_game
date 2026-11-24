@@ -2,7 +2,14 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import handler from './api/game.js';
+
+// Load local env (e.g. Upstash credentials) before the store module reads process.env.
+for (const file of ['.env.development.local', '.env.local', '.env']) {
+  try {
+    process.loadEnvFile(fileURLToPath(new URL(file, import.meta.url)));
+  } catch {}
+}
+const { default: handler } = await import('./api/game.js');
 
 const PUBLIC_DIR = fileURLToPath(new URL('./public/', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
