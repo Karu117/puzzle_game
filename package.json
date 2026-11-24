@@ -1,0 +1,13 @@
+{
+  "name": "ox-quiz-battle",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "최대 30명이 함께하는 실시간 O/X 퀴즈 배틀",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
