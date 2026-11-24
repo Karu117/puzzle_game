@@ -177,9 +177,10 @@ export class Arena {
         const y = cy - size / 2;
         const prev = node._pos;
         node.style.setProperty('--s', `${size}px`);
-        node.style.transform = `translate(${x}px, ${y}px)`;
+        const moved = prev && (Math.abs(x - prev.x) > 0.5 || Math.abs(y - prev.y) > 0.5);
         node._pos = { x, y };
-        if (prev && Math.hypot(x - prev.x, y - prev.y) > 6) hop(node, x - prev.x, y - prev.y);
+        if (moved) travel(node, x, y, Math.hypot(x - prev.x, y - prev.y) > 24, i);
+        else if (!prev) node.style.transform = `translate(${x}px, ${y}px)`;
         else if (enteredReveal && p.alive && answer && choices[p.id] === answer) cheer(node, i);
         node.classList.toggle('is-out', !p.alive && !lobby);
         node.classList.toggle('is-falling', state.phase === 'reveal' && justOut.has(p.id));
@@ -213,36 +214,103 @@ export class Arena {
 
 /* ---------- Avatar motion ---------- */
 
-const HOP_MS = 720;
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** A bouncy, cartoon-style jump: crouch, stretch into the air leaning toward the target, squash on landing. */
-function hop(node, dx, dy) {
-  if (reducedMotion()) return;
-  const body = node.querySelector('.avatar-body');
-  const dist = Math.hypot(dx, dy);
-  const lift = Math.min(90, 26 + dist * 0.35);
-  const lean = Math.sign(dx || 1) * Math.min(18, 6 + Math.abs(dx) * 0.06);
-  const delay = Math.random() * 120;
-  node.style.transitionDelay = `${delay}ms`;
-  node.classList.add('is-hopping');
+/** Current on-screen translate of a node, including any in-flight animation. */
+function currentXY(node) {
+  const m = new DOMMatrixReadOnly(getComputedStyle(node).transform);
+  return { x: m.m41, y: m.m42 };
+}
 
-  body.getAnimations().forEach((a) => a.cancel());
-  body.animate(
+/**
+ * Glide the avatar to (x, y) while it bounces along the way like a jelly:
+ * the wrapper slides smoothly, the body does several small squash-and-stretch hops,
+ * and the ground shadow shrinks on every bounce.
+ */
+function travel(node, x, y, bouncy, i) {
+  const to = `translate(${x}px, ${y}px)`;
+  if (reducedMotion()) {
+    node.style.transform = to;
+    return;
+  }
+  const from = currentXY(node);
+  node.getAnimations().forEach((a) => a.cancel());
+  node.style.transform = to;
+
+  const dx = x - from.x;
+  const dy = y - from.y;
+  const dist = Math.hypot(dx, dy);
+
+  if (!bouncy) {
+    node.animate([{ transform: `translate(${from.x}px, ${from.y}px)` }, { transform: to }], {
+      duration: 420,
+      easing: 'cubic-bezier(.34,1.4,.64,1)',
+    });
+    return;
+  }
+
+  const hops = Math.max(3, Math.min(6, Math.round(dist / 55)));
+  const hopMs = 300;
+  const duration = hops * hopMs + 260;
+  const delay = (i % 6) * 45 + Math.random() * 60;
+  const lean = Math.sign(dx || 1) * 10;
+  const lift = Math.max(14, Math.min(34, dist / hops));
+
+  // Wrapper: one smooth glide that eases in, cruises, then settles past the target and back.
+  node.classList.add('is-hopping');
+  node.animate(
     [
-      { transform: 'translateY(0) rotate(0) scale(1, 1)', offset: 0 },
-      { transform: `translateY(4%) rotate(${-lean * 0.4}deg) scale(1.18, 0.78)`, offset: 0.12, easing: 'cubic-bezier(.2,.8,.3,1)' },
-      { transform: `translateY(-${lift}px) rotate(${lean}deg) scale(0.88, 1.16)`, offset: 0.5, easing: 'cubic-bezier(.5,0,.9,.5)' },
-      { transform: `translateY(0) rotate(${lean * 0.3}deg) scale(1.22, 0.74)`, offset: 0.82, easing: 'cubic-bezier(.2,.8,.3,1.4)' },
-      { transform: `translateY(-6%) rotate(${-lean * 0.2}deg) scale(0.95, 1.06)`, offset: 0.92 },
-      { transform: 'translateY(0) rotate(0) scale(1, 1)', offset: 1 },
+      { transform: `translate(${from.x}px, ${from.y}px)`, offset: 0 },
+      { transform: `translate(${from.x - dx * 0.04}px, ${from.y - dy * 0.04}px)`, offset: 0.08 },
+      { transform: `translate(${x + dx * 0.035}px, ${y + dy * 0.035}px)`, offset: 0.86 },
+      { transform: to, offset: 1 },
     ],
-    { duration: HOP_MS, delay, fill: 'none' },
+    { duration, delay, easing: 'cubic-bezier(.45,.05,.4,1)', fill: 'backwards' },
   ).finished.then(
     () => node.classList.remove('is-hopping'),
     () => {},
   );
 
+  // Body: anticipation squash, a chain of bounces leaning toward the target, then a jiggly landing.
+  const body = node.querySelector('.avatar-body');
+  body.getAnimations().forEach((a) => a.cancel());
+  const frames = [{ transform: 'translateY(0) rotate(0) scale(1,1)', offset: 0 }];
+  const travelStart = 0.08;
+  const travelEnd = 0.86;
+  const span = (travelEnd - travelStart) / hops;
+  frames.push({ transform: `translateY(0) rotate(${-lean * 0.5}deg) scale(1.22,0.76)`, offset: travelStart });
+  for (let k = 0; k < hops; k++) {
+    const o = travelStart + k * span;
+    const h = lift * (k === 0 ? 1.15 : 1 - k * 0.06);
+    frames.push({
+      transform: `translateY(-${h}px) rotate(${lean}deg) scale(0.9,1.12)`,
+      offset: o + span * 0.5,
+      easing: 'cubic-bezier(.33,0,.67,0)',
+    });
+    frames.push({
+      transform: `translateY(0) rotate(${lean * 0.4}deg) scale(1.16,0.84)`,
+      offset: o + span,
+      easing: 'cubic-bezier(.33,1,.67,1)',
+    });
+  }
+  frames.push({ transform: `translateY(-10%) rotate(${-lean * 0.3}deg) scale(0.94,1.08)`, offset: 0.93 });
+  frames.push({ transform: 'translateY(0) rotate(0) scale(1.04,0.97)', offset: 0.97 });
+  frames.push({ transform: 'translateY(0) rotate(0) scale(1,1)', offset: 1 });
+  body.animate(frames, { duration, delay, fill: 'backwards' });
+
+  // Shadow: shrink at each peak, grow at each landing.
+  const shadow = [{ transform: 'scale(1)', opacity: 1, offset: 0 }];
+  for (let k = 0; k < hops; k++) {
+    const o = travelStart + k * span;
+    shadow.push({ transform: 'scale(0.5)', opacity: 0.45, offset: o + span * 0.5 });
+    shadow.push({ transform: 'scale(1.1)', opacity: 1, offset: o + span });
+  }
+  shadow.push({ transform: 'scale(1)', opacity: 1, offset: 1 });
+  try {
+    node.animate(shadow, { duration, delay, pseudoElement: '::after' });
+  } catch {}
+
+  // Dust puffs on the final landing.
   const dust = node.querySelector('.avatar-dust');
   dust.getAnimations({ subtree: true }).forEach((a) => a.cancel());
   [...dust.children].forEach((puff, k) => {
@@ -253,7 +321,7 @@ function hop(node, dx, dy) {
         { opacity: 0.9, transform: `translate(calc(-50% + ${side * 70}%), -20%) scale(1)`, offset: 0.35 },
         { opacity: 0, transform: `translate(calc(-50% + ${side * 130}%), -60%) scale(1.4)` },
       ],
-      { duration: 420, delay: delay + HOP_MS * 0.8, easing: 'ease-out', fill: 'backwards' },
+      { duration: 460, delay: delay + duration * 0.84, easing: 'ease-out', fill: 'backwards' },
     );
   });
 }
@@ -348,7 +416,9 @@ export function renderCeremony(root, data, meId) {
     : '';
 
   root.innerHTML = `
-    <canvas class="confetti" aria-hidden="true"></canvas>
+    <div class="ceremony-rays" aria-hidden="true"></div>
+    <canvas class="fireworks" aria-hidden="true"></canvas>
+    <div class="ceremony-flash" aria-hidden="true"></div>
     <div class="ceremony-inner">
       <p class="ceremony-kicker">시상식</p>
       <h2 class="ceremony-title">${headline}</h2>
@@ -356,49 +426,184 @@ export function renderCeremony(root, data, meId) {
       <div class="podium">${podium}</div>
       ${rest ? `<ol class="rest-list" aria-label="그 외 수상자">${rest}</ol>` : ''}
     </div>`;
-  launchConfetti(root.querySelector('.confetti'));
+  launchCelebration(root.querySelector('.fireworks'), root);
 }
 
-function launchConfetti(canvas) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+const FIREWORK_COLORS = ['#2f6bff', '#ff4f5e', '#ffc23d', '#ffffff', '#5ce0b8', '#ff8ad8'];
+
+/** Canvas show: rockets that burst into glittering sparks, ring bursts, and a confetti shower. */
+function launchCelebration(canvas, root) {
+  if (reducedMotion()) return;
   const ctx = canvas.getContext('2d');
-  const colors = ['#2f6bff', '#ff4f5e', '#ffc23d', '#ffffff'];
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  let W = 0;
+  let H = 0;
   const resize = () => {
-    canvas.width = canvas.clientWidth * devicePixelRatio;
-    canvas.height = canvas.clientHeight * devicePixelRatio;
+    W = canvas.clientWidth;
+    H = canvas.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   };
   resize();
-  const bits = Array.from({ length: 140 }, () => ({
-    x: Math.random() * canvas.width,
-    y: -Math.random() * canvas.height,
-    w: (6 + Math.random() * 6) * devicePixelRatio,
-    h: (10 + Math.random() * 8) * devicePixelRatio,
-    vy: (2 + Math.random() * 3) * devicePixelRatio,
-    vx: (Math.random() - 0.5) * 2 * devicePixelRatio,
-    r: Math.random() * Math.PI,
-    vr: (Math.random() - 0.5) * 0.2,
-    c: colors[Math.floor(Math.random() * colors.length)],
-  }));
+  addEventListener('resize', resize);
+
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const rockets = [];
+  const sparks = [];
+  const confetti = [];
+
+  const launch = (x = W * (0.15 + Math.random() * 0.7), big = false) => {
+    rockets.push({
+      x,
+      y: H + 10,
+      vx: (Math.random() - 0.5) * 1.2,
+      vy: -(H * 0.016 + Math.random() * 3.2),
+      color: pick(FIREWORK_COLORS),
+      big,
+      trail: [],
+    });
+  };
+
+  const burst = (r) => {
+    const count = r.big ? 140 : 70 + Math.floor(Math.random() * 40);
+    const ring = Math.random() < 0.35;
+    const second = pick(FIREWORK_COLORS);
+    for (let k = 0; k < count; k++) {
+      const a = (k / count) * Math.PI * 2 + Math.random() * 0.1;
+      const speed = ring ? 4.2 : 1 + Math.random() * (r.big ? 6.5 : 4.8);
+      sparks.push({
+        x: r.x,
+        y: r.y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        life: 1,
+        decay: 0.009 + Math.random() * 0.012,
+        color: k % 3 === 0 ? second : r.color,
+        size: r.big ? 2.6 : 2,
+        glitter: Math.random() < 0.3,
+      });
+    }
+    if (r.big) flash(root);
+  };
+
+  const rain = (n) => {
+    for (let k = 0; k < n; k++) {
+      confetti.push({
+        x: Math.random() * W,
+        y: -20 - Math.random() * H * 0.6,
+        w: 6 + Math.random() * 6,
+        h: 9 + Math.random() * 8,
+        vy: 1.4 + Math.random() * 2.2,
+        vx: (Math.random() - 0.5) * 1.4,
+        r: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.25,
+        sway: Math.random() * Math.PI * 2,
+        color: pick(FIREWORK_COLORS),
+      });
+    }
+  };
+
+  // Choreography: warm-up volley, a big triple burst as 1st place rises, then a sustained show.
+  const timers = [];
+  const at = (ms, fn) => timers.push(setTimeout(() => canvas.isConnected && fn(), ms));
+  at(100, () => launch(W * 0.2));
+  at(350, () => launch(W * 0.8));
+  at(650, () => launch(W * 0.5));
+  at(1000, () => {
+    launch(W * 0.5, true);
+    launch(W * 0.25, true);
+    launch(W * 0.75, true);
+    rain(160);
+  });
+  for (let t = 1800; t < 9000; t += 380 + Math.random() * 380) at(t, () => launch());
+  at(4500, () => rain(80));
+  at(9000, () => {
+    launch(W * 0.3, true);
+    launch(W * 0.7, true);
+  });
+
   const start = performance.now();
-  const frame = (t) => {
-    if (!canvas.isConnected) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const fading = t - start > 6000;
-    let visible = 0;
-    for (const b of bits) {
-      b.x += b.vx;
-      b.y += b.vy;
-      b.r += b.vr;
-      if (b.y > canvas.height && !fading) b.y = -20;
-      if (b.y <= canvas.height) visible++;
+  let last = start;
+  const frame = (now) => {
+    if (!canvas.isConnected) {
+      timers.forEach(clearTimeout);
+      removeEventListener('resize', resize);
+      return;
+    }
+    const dt = Math.min(2.5, (now - last) / 16.67);
+    last = now;
+
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (let k = rockets.length - 1; k >= 0; k--) {
+      const r = rockets[k];
+      r.x += r.vx * dt;
+      r.y += r.vy * dt;
+      r.vy += 0.06 * dt;
+      ctx.fillStyle = r.color;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,220,150,0.6)';
+      ctx.fillRect(r.x - 1, r.y + 3, 2, 6 + Math.random() * 6);
+      if (r.vy >= -1.2 || r.y < H * 0.12) {
+        burst(r);
+        rockets.splice(k, 1);
+      }
+    }
+
+    for (let k = sparks.length - 1; k >= 0; k--) {
+      const s = sparks[k];
+      s.vx *= 0.975;
+      s.vy = s.vy * 0.975 + 0.05 * dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.life -= s.decay * dt;
+      if (s.life <= 0) {
+        sparks.splice(k, 1);
+        continue;
+      }
+      const twinkle = s.glitter ? (Math.random() < 0.5 ? 0.2 : 1) : 1;
+      ctx.globalAlpha = Math.max(0, s.life) * twinkle;
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size * (0.6 + s.life * 0.6), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    for (let k = confetti.length - 1; k >= 0; k--) {
+      const c = confetti[k];
+      c.sway += 0.05 * dt;
+      c.x += (c.vx + Math.sin(c.sway) * 0.8) * dt;
+      c.y += c.vy * dt;
+      c.r += c.vr * dt;
+      if (c.y > H + 20) {
+        confetti.splice(k, 1);
+        continue;
+      }
       ctx.save();
-      ctx.translate(b.x, b.y);
-      ctx.rotate(b.r);
-      ctx.fillStyle = b.c;
-      ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.r);
+      ctx.scale(1, Math.cos(c.sway * 2));
+      ctx.fillStyle = c.color;
+      ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
       ctx.restore();
     }
-    if (visible) requestAnimationFrame(frame);
+
+    const running = now - start < 11000 || rockets.length || sparks.length || confetti.length;
+    if (running) requestAnimationFrame(frame);
+    else ctx.clearRect(0, 0, W, H);
   };
   requestAnimationFrame(frame);
+}
+
+function flash(root) {
+  const el = root.querySelector('.ceremony-flash');
+  el?.animate([{ opacity: 0.55 }, { opacity: 0 }], { duration: 500, easing: 'ease-out' });
 }
