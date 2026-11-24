@@ -146,6 +146,10 @@ export class Arena {
       else groups.W.push(p);
     }
 
+    const phaseKey = `${state.gameId}:${state.round}:${state.phase}`;
+    const enteredReveal = state.phase === 'reveal' && this.phaseKey && this.phaseKey !== phaseKey;
+    this.phaseKey = phaseKey;
+
     this.root.querySelector('.zone-o .zone-count').textContent = lobby ? '' : `${groups.O.length}명`;
     this.root.querySelector('.zone-x .zone-count').textContent = lobby ? '' : `${groups.X.length}명`;
 
@@ -169,8 +173,14 @@ export class Arena {
         const cx = x0 * W + pad + offsetX + (col + 0.5) * grid.cell;
         const cy = y0 * H + pad + Math.max(0, offsetY) + (row + 0.5) * grid.cell;
         const node = this.node(p);
+        const x = cx - size / 2;
+        const y = cy - size / 2;
+        const prev = node._pos;
         node.style.setProperty('--s', `${size}px`);
-        node.style.transform = `translate(${cx - size / 2}px, ${cy - size / 2}px)`;
+        node.style.transform = `translate(${x}px, ${y}px)`;
+        node._pos = { x, y };
+        if (prev && Math.hypot(x - prev.x, y - prev.y) > 6) hop(node, x - prev.x, y - prev.y);
+        else if (enteredReveal && p.alive && answer && choices[p.id] === answer) cheer(node, i);
         node.classList.toggle('is-out', !p.alive && !lobby);
         node.classList.toggle('is-falling', state.phase === 'reveal' && justOut.has(p.id));
         node.classList.toggle('is-tiny', key === 'OUT' || key === 'W');
@@ -191,7 +201,7 @@ export class Arena {
       node = document.createElement('div');
       node.className = 'avatar is-new';
       node.setAttribute('role', 'listitem');
-      node.innerHTML = `${avatarSvg(p.avatar)}<span class="avatar-name">${escapeHtml(p.name)}</span>`;
+      node.innerHTML = `<span class="avatar-dust" aria-hidden="true"><i></i><i></i><i></i></span><span class="avatar-body">${avatarSvg(p.avatar)}<span class="avatar-name">${escapeHtml(p.name)}</span></span>`;
       node.setAttribute('aria-label', p.name);
       this.layer.appendChild(node);
       this.nodes.set(p.id, node);
@@ -199,6 +209,71 @@ export class Arena {
     }
     return node;
   }
+}
+
+/* ---------- Avatar motion ---------- */
+
+const HOP_MS = 720;
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** A bouncy, cartoon-style jump: crouch, stretch into the air leaning toward the target, squash on landing. */
+function hop(node, dx, dy) {
+  if (reducedMotion()) return;
+  const body = node.querySelector('.avatar-body');
+  const dist = Math.hypot(dx, dy);
+  const lift = Math.min(90, 26 + dist * 0.35);
+  const lean = Math.sign(dx || 1) * Math.min(18, 6 + Math.abs(dx) * 0.06);
+  const delay = Math.random() * 120;
+  node.style.transitionDelay = `${delay}ms`;
+  node.classList.add('is-hopping');
+
+  body.getAnimations().forEach((a) => a.cancel());
+  body.animate(
+    [
+      { transform: 'translateY(0) rotate(0) scale(1, 1)', offset: 0 },
+      { transform: `translateY(4%) rotate(${-lean * 0.4}deg) scale(1.18, 0.78)`, offset: 0.12, easing: 'cubic-bezier(.2,.8,.3,1)' },
+      { transform: `translateY(-${lift}px) rotate(${lean}deg) scale(0.88, 1.16)`, offset: 0.5, easing: 'cubic-bezier(.5,0,.9,.5)' },
+      { transform: `translateY(0) rotate(${lean * 0.3}deg) scale(1.22, 0.74)`, offset: 0.82, easing: 'cubic-bezier(.2,.8,.3,1.4)' },
+      { transform: `translateY(-6%) rotate(${-lean * 0.2}deg) scale(0.95, 1.06)`, offset: 0.92 },
+      { transform: 'translateY(0) rotate(0) scale(1, 1)', offset: 1 },
+    ],
+    { duration: HOP_MS, delay, fill: 'none' },
+  ).finished.then(
+    () => node.classList.remove('is-hopping'),
+    () => {},
+  );
+
+  const dust = node.querySelector('.avatar-dust');
+  dust.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+  [...dust.children].forEach((puff, k) => {
+    const side = k - 1;
+    puff.animate(
+      [
+        { opacity: 0, transform: 'translate(-50%, 0) scale(0.3)' },
+        { opacity: 0.9, transform: `translate(calc(-50% + ${side * 70}%), -20%) scale(1)`, offset: 0.35 },
+        { opacity: 0, transform: `translate(calc(-50% + ${side * 130}%), -60%) scale(1.4)` },
+      ],
+      { duration: 420, delay: delay + HOP_MS * 0.8, easing: 'ease-out', fill: 'backwards' },
+    );
+  });
+}
+
+/** Little double-jump celebration for players who picked the right answer. */
+function cheer(node, i) {
+  if (reducedMotion()) return;
+  const body = node.querySelector('.avatar-body');
+  body.animate(
+    [
+      { transform: 'translateY(0) scale(1, 1)' },
+      { transform: 'translateY(2%) scale(1.15, 0.85)', offset: 0.1 },
+      { transform: 'translateY(-38%) scale(0.92, 1.1) rotate(-8deg)', offset: 0.3 },
+      { transform: 'translateY(0) scale(1.12, 0.88)', offset: 0.5 },
+      { transform: 'translateY(-26%) scale(0.95, 1.06) rotate(8deg)', offset: 0.7 },
+      { transform: 'translateY(0) scale(1.08, 0.92)', offset: 0.88 },
+      { transform: 'translateY(0) scale(1, 1)' },
+    ],
+    { duration: 900, delay: 250 + (i % 8) * 60, easing: 'ease-in-out' },
+  );
 }
 
 /* ---------- Timer ---------- */

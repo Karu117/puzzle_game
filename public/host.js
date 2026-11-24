@@ -192,7 +192,9 @@ function render(data) {
   card.dataset.answer = phase === 'reveal' ? state.question?.answer || '' : '';
   if (phase === 'lobby') {
     $('q-kicker').textContent = `대기실 · ${players.length}/${data.maxPlayers}명`;
-    $('q-text').textContent = players.length ? '참가자가 모두 들어오면 첫 문제를 내 주세요.' : '참가자 입장을 기다리는 중입니다.';
+    $('q-text').textContent = players.length
+      ? `${players.length}명 입장! 인원이 다 차지 않아도 지금 바로 시작할 수 있어요.`
+      : '참가자 입장을 기다리는 중입니다.';
   } else if (state.question) {
     $('q-kicker').textContent = phase === 'reveal' || phase === 'ceremony' ? `정답은 ${state.question.answer}!` : `문제 ${state.round}`;
     $('q-text').textContent = state.question.text;
@@ -218,8 +220,9 @@ function render(data) {
     ? `<span class="next-label">다음 문제 ${state.bankIndex + 1}/${bank.length}</span><span class="next-text"><b class="ans ans-${next.answer}">${next.answer}</b>${escapeHtml(next.text)}</span>`
     : `<span class="next-label">문제 은행 소진</span><span class="next-text">직접 문제를 내거나 문제 은행에 추가하세요.</span>`;
 
-  const canAsk = (phase === 'lobby' || phase === 'reveal') && alive.length >= 2;
+  const canAsk = (phase === 'lobby' || phase === 'reveal') && alive.length >= 1;
   $('ask-next').disabled = !canAsk || !next;
+  $('ask-next').textContent = phase === 'lobby' ? `게임 시작 (${players.length}명)` : '다음 문제 출제';
   $('custom-form').querySelector('button').disabled = !canAsk;
   $('reveal').disabled = phase !== 'question';
   $('to-ceremony').disabled = phase === 'question' || phase === 'ceremony' || players.length === 0;

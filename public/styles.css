@@ -155,11 +155,26 @@ textarea { resize: vertical; line-height: 1.5; }
 .avatar {
   --s: 48px;
   position: absolute; top: 0; left: 0; width: var(--s); height: var(--s);
-  transition: transform 0.75s cubic-bezier(0.34, 1.45, 0.64, 1), opacity 0.4s, filter 0.4s;
+  transition: transform 0.72s cubic-bezier(0.45, 0, 0.35, 1), opacity 0.4s, filter 0.4s;
   will-change: transform;
 }
-.avatar svg { width: 100%; height: 100%; display: block; animation: bob 2.4s ease-in-out infinite; }
-.avatar.is-new svg { animation: pop 0.5s cubic-bezier(0.34, 1.6, 0.64, 1) both; }
+.avatar.is-hopping { z-index: 2; }
+.avatar-body { position: absolute; inset: 0; display: block; transform-origin: 50% 100%; }
+.avatar svg { width: 100%; height: 100%; display: block; transform-origin: 50% 100%; animation: wobble 2.6s ease-in-out infinite; }
+.avatar:nth-child(3n) svg { animation-delay: -0.9s; }
+.avatar:nth-child(3n + 1) svg { animation-delay: -1.7s; }
+.avatar.is-new svg { animation: pop 0.6s cubic-bezier(0.34, 1.8, 0.64, 1) both; }
+.avatar-dust { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; pointer-events: none; }
+.avatar-dust i {
+  position: absolute; left: 50%; bottom: 0; width: 38%; aspect-ratio: 1; border-radius: 50%; opacity: 0;
+  background: color-mix(in srgb, var(--ink) 18%, var(--surface));
+}
+.avatar::after {
+  content: ''; position: absolute; left: 18%; right: 18%; bottom: -4%; height: 12%; border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 16%, transparent); z-index: -1; transition: transform 0.36s;
+}
+.avatar.is-hopping::after { animation: shadow-shrink 0.72s ease-in-out; }
+.avatar.is-tiny::after { display: none; }
 .avatar-name {
   position: absolute; top: 92%; left: 50%; transform: translateX(-50%);
   max-width: calc(var(--s) * 1.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -330,7 +345,14 @@ textarea { resize: vertical; line-height: 1.5; }
 
 /* ---------- Motion ---------- */
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4%); } }
-@keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes pop { 0% { transform: scale(0) translateY(40%); } 60% { transform: scale(1.15, 0.9); } 100% { transform: scale(1); } }
+@keyframes wobble {
+  0%, 100% { transform: translateY(0) rotate(0) scale(1, 1); }
+  25% { transform: translateY(-3%) rotate(-3deg) scale(0.98, 1.03); }
+  50% { transform: translateY(0) rotate(0) scale(1.03, 0.97); }
+  75% { transform: translateY(-3%) rotate(3deg) scale(0.98, 1.03); }
+}
+@keyframes shadow-shrink { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.45); opacity: 0.4; } }
 @keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
 @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.06); } }
 @keyframes rise { from { opacity: 0; transform: translateY(60px); } to { opacity: 1; transform: none; } }
