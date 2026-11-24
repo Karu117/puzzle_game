@@ -70,7 +70,7 @@ async function choose(choice) {
   render(latest);
   navigator.vibrate?.(15);
   try {
-    await api('choose', { ...session, choice });
+    await api('choose', { ...session, choice }, { retries: 2 });
   } catch (err) {
     if (pending?.round === round && pending.choice === choice) pending = null;
     $('status').textContent = err.message;
@@ -135,17 +135,42 @@ function statusText(data, me) {
   return '';
 }
 
+let missingChecks = 0;
+let confirming = false;
+
+async function confirmGone() {
+  if (confirming || !session) return;
+  confirming = true;
+  try {
+    const { exists } = await api('me', session, { retries: 1 });
+    if (exists) return;
+    missingChecks++;
+    if (missingChecks >= 2) {
+      missingChecks = 0;
+      saveSession(null);
+      $('join-msg').textContent = '게임에서 나가졌어요. 다시 입장해 주세요.';
+      if (latest) render(latest);
+    }
+  } catch {
+    // Network trouble is not proof the player was removed; keep the session.
+  } finally {
+    confirming = false;
+  }
+}
+
 function render(raw) {
   latest = raw;
   const data = withPending(raw);
   const { state, players } = data;
   const me = session ? players.find((p) => p.id === session.playerId) : null;
 
-  if (session && !me && Date.now() < joinGraceUntil) return;
   if (session && !me) {
-    saveSession(null);
-    $('join-msg').textContent = '게임에서 나가졌어요. 다시 입장해 주세요.';
+    // Never drop a session from one snapshot: confirm with the server first.
+    if (Date.now() < joinGraceUntil) return;
+    confirmGone();
+    return;
   }
+  missingChecks = 0;
   if (!me && !watching) return renderJoin(data);
 
   $('join').hidden = true;
@@ -194,8 +219,8 @@ startPolling(
     if (pending && (data.state.round !== pending.round || data.choices[session?.playerId] === pending.choice)) pending = null;
     render(data);
   },
-  () => {
-    $('status').textContent = '서버 연결이 불안정해요. 다시 연결하는 중…';
+  (_err, failures) => {
+    if (failures >= 2) $('status').textContent = '서버 연결이 불안정해요. 다시 연결하는 중…';
   },
 );
 

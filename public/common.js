@@ -1,36 +1,78 @@
 export const POLL_MS = 800;
+const IDLE_POLL_MS = 1500;
+const REQUEST_TIMEOUT_MS = 6000;
 
-export async function api(action, body) {
-  const res = await fetch(`/api/game?action=${action}`, {
-    method: body ? 'POST' : 'GET',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    cache: 'no-store',
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || '요청에 실패했습니다.'), { status: res.status });
-  return data;
+export async function api(action, body, { retries = 0 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(`/api/game?action=${action}`, {
+        method: body ? 'POST' : 'GET',
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = Object.assign(new Error(data.error || '요청에 실패했습니다.'), { status: res.status });
+        if (res.status >= 500 && attempt < retries) throw Object.assign(err, { retryable: true });
+        throw err;
+      }
+      return data;
+    } catch (err) {
+      const retryable = err.retryable || err.status === undefined;
+      if (!retryable || attempt >= retries) {
+        if (err.status === undefined) err.message = '서버 연결이 불안정해요. 다시 시도해 주세요.';
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+    }
+  }
 }
 
 /** Polls state, never overlapping requests, and tracks the server clock offset. */
 export function startPolling(onData, onError) {
   let stopped = false;
   let offset = 0;
+  let failures = 0;
+  let lastPhase = 'lobby';
+  let timer = 0;
   const tick = async () => {
     if (stopped) return;
     const sentAt = Date.now();
     try {
       const data = await api('state');
       const rtt = Date.now() - sentAt;
-      offset = data.serverTime + rtt / 2 - Date.now();
+      // Ignore offsets from very slow round trips; they skew the countdown.
+      if (rtt < 1500 || failures > 0 || offset === 0) offset = data.serverTime + rtt / 2 - Date.now();
+      failures = 0;
+      lastPhase = data.state.phase;
       onData(data, () => Date.now() + offset);
     } catch (err) {
-      onError?.(err);
+      failures++;
+      onError?.(err, failures);
     }
-    if (!stopped) setTimeout(tick, document.hidden ? POLL_MS * 3 : POLL_MS);
+    if (stopped) return;
+    const base = lastPhase === 'question' || lastPhase === 'reveal' ? POLL_MS : IDLE_POLL_MS;
+    const backoff = failures ? Math.min(5000, POLL_MS * 2 ** (failures - 1)) : 0;
+    const jitter = Math.random() * 200;
+    timer = setTimeout(tick, (document.hidden ? base * 3 : base) + backoff + jitter);
   };
+  const wake = () => {
+    if (document.hidden || stopped) return;
+    clearTimeout(timer);
+    tick();
+  };
+  document.addEventListener('visibilitychange', wake);
+  window.addEventListener('online', wake);
   tick();
-  return { stop: () => (stopped = true), now: () => Date.now() + offset };
+  return {
+    stop: () => {
+      stopped = true;
+      clearTimeout(timer);
+    },
+    now: () => Date.now() + offset,
+  };
 }
 
 export const escapeHtml = (s) =>
