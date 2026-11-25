@@ -165,6 +165,10 @@ export class Court {
         <div class="pk-net" aria-hidden="true"></div>
         <div class="pk-layer"></div>
         <div class="pk-ball-shadow" hidden></div>
+        <div class="pk-ball-trail" hidden></div>
+        <div class="pk-ball-trail" hidden></div>
+        <div class="pk-ball-trail" hidden></div>
+        <div class="pk-ball-trail" hidden></div>
         <div class="pk-ball" hidden></div>
         <div class="pk-overlay" hidden></div>
       </div>
@@ -173,6 +177,7 @@ export class Court {
     this.layer = root.querySelector('.pk-layer');
     this.ball = root.querySelector('.pk-ball');
     this.shadow = root.querySelector('.pk-ball-shadow');
+    this.trail = [...root.querySelectorAll('.pk-ball-trail')];
     this.overlay = root.querySelector('.pk-overlay');
     this.live = root.querySelector('[aria-live]');
     this.size = { w: 1, h: 1 };
@@ -322,29 +327,36 @@ export class Court {
     if (m.stage === 'intro' || m.stage === 'end') this.renderOverlay();
     const b = m.stage === 'rally' ? m.ball : null;
     this.ball.hidden = this.shadow.hidden = !b;
+    for (const el of this.trail) el.hidden = !b;
     if (!b) return;
     const now = clock.now();
-    const from = this.posOf(b.from);
-    const to = this.posOf(b.to);
     // Start the ball just in front of the hitter's paddle so it travels toward the net.
     const lift = (p) => ({ x: p.x, y: p.y + (p.y > 50 ? -6 : 6) });
-    const a = lift(from);
-    const z = lift(to);
-    const t = Math.min(1, Math.max(0, (now - b.launchAt) / (b.arriveAt - b.launchAt)));
-    let x = a.x + (z.x - a.x) * t;
-    let y = a.y + (z.y - a.y) * t;
-    let height = Math.sin(Math.PI * t) * (b.kind === 'serve' ? 22 : 16);
-    if (now > b.arriveAt) {
-      const since = now - b.arriveAt;
-      height = Math.abs(Math.sin(since / 110)) * 5 * Math.max(0, 1 - since / 700);
-    }
+    const a = lift(this.posOf(b.from));
+    const z = lift(this.posOf(b.to));
     const { w, h } = this.size;
-    const px = (x / 100) * w;
-    const py = (y / 100) * h;
-    const lifted = py - (height / 100) * h;
-    const scale = 1 + height / 40;
-    this.shadow.style.transform = `translate(${px}px, ${py}px) translate(-50%, -50%) scale(${1 - height / 60})`;
-    this.ball.style.transform = `translate(${px}px, ${lifted}px) translate(-50%, -50%) scale(${scale})`;
+    const at = (time) => {
+      const t = Math.min(1, Math.max(0, (time - b.launchAt) / (b.arriveAt - b.launchAt)));
+      let height = Math.sin(Math.PI * t) * (b.kind === 'serve' ? 22 : 16);
+      if (time > b.arriveAt) {
+        const since = time - b.arriveAt;
+        height = Math.abs(Math.sin(since / 110)) * 5 * Math.max(0, 1 - since / 700);
+      }
+      const px = ((a.x + (z.x - a.x) * t) / 100) * w;
+      const py = ((a.y + (z.y - a.y) * t) / 100) * h;
+      return { px, py, lifted: py - (height / 100) * h, height };
+    };
+    const cur = at(now);
+    const scale = 1 + cur.height / 40;
+    this.shadow.style.transform = `translate(${cur.px}px, ${cur.py}px) translate(-50%, -50%) scale(${1 - cur.height / 60})`;
+    this.ball.style.transform = `translate(${cur.px}px, ${cur.lifted}px) translate(-50%, -50%) scale(${scale})`;
+    // Ghost copies trailing behind the ball keep its path readable at high speed.
+    const inFlight = now < b.arriveAt;
+    this.trail.forEach((el, i) => {
+      const p = at(Math.max(b.launchAt, now - (i + 1) * 45));
+      el.style.opacity = inFlight ? String(0.55 - i * 0.12) : '0';
+      el.style.transform = `translate(${p.px}px, ${p.lifted}px) translate(-50%, -50%) scale(${(1 + p.height / 40) * (1 - i * 0.12)})`;
+    });
 
     const target = [...this.layer.children].find((el) => el.dataset.id === b.to);
     if (target) {
