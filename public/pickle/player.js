@@ -4,6 +4,7 @@ import {
   clock,
   Court,
   Fireworks,
+  SHOT_NAME,
   avatarSvg,
   escapeHtml,
   playerMap,
@@ -135,11 +136,20 @@ function setHint(text, tone) {
   $('hint').dataset.tone = tone;
 }
 
+const INCOMING_HINT = {
+  serve: '서브가 날아와요...',
+  drive: '드라이브! 빠르게 와요',
+  dink: '딩크! 느리지만 타이밍이 짧아요',
+  lob: '로브! 높이 떠요. 정확히 치면 스매시',
+  smash: '스매시! 아주 빨라요!',
+};
+
 let vibratedFor = 0;
 function controlsFrame() {
   requestAnimationFrame(controlsFrame);
   if ($('controls').hidden || !data) return;
   const m = data.state.match;
+  if (!m) return;
   const ball = myBall();
   const now = clock.now();
   const hot = Boolean(ball && now >= ball.windowStart && now <= ball.windowEnd && sentBall !== ball.no);
@@ -153,8 +163,8 @@ function controlsFrame() {
   else if (m.stage === 'point') setHint('득점! 다음 서브를 준비하세요', '');
   else if (m.stage === 'end') setHint('경기 종료', '');
   else if (ball && sentBall === ball.no) setHint('받아쳤어요!', '');
-  else if (hot) setHint('지금 치세요!', 'hot');
-  else if (ball) setHint('공이 날아오고 있어요...', '');
+  else if (hot) setHint(ball.kind === 'lob' ? '지금! 정확히 치면 스매시!' : '지금 치세요!', 'hot');
+  else if (ball) setHint(INCOMING_HINT[ball.kind] || `${SHOT_NAME[ball.kind] ?? '공'}이 날아와요...`, '');
   else if (m.ball && teamOf(data.state, me.playerId)?.members.includes(m.ball.to)) setHint('파트너 차례예요', '');
   else setHint('상대 팀 차례예요', '');
 }

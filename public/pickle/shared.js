@@ -144,6 +144,8 @@ const SLOT_POS = {
 };
 
 const GRADE_TEXT = { perfect: 'PERFECT!', good: 'GOOD', ok: 'OK' };
+export const SHOT_NAME = { serve: '서브', drive: '드라이브', dink: '딩크', lob: '로브', smash: '스매시' };
+const SHOT_HEIGHT = { serve: 22, drive: 9, dink: 12, lob: 38, smash: 6 };
 
 export class Court {
   constructor(root, { meId = null } = {}) {
@@ -235,7 +237,9 @@ export class Court {
     if (m.lastHit && m.lastHit.at !== this.lastHitAt) {
       this.lastHitAt = m.lastHit.at;
       this.flash(m.lastHit.by, 'swing');
-      this.pop(m.lastHit.by, GRADE_TEXT[m.lastHit.grade] || '', m.lastHit.grade);
+      const shot = SHOT_NAME[m.lastHit.kind];
+      const grade = GRADE_TEXT[m.lastHit.grade] || '';
+      this.pop(m.lastHit.by, shot ? `${grade} ${shot}` : grade, m.lastHit.kind === 'smash' ? 'smash' : m.lastHit.grade);
     }
     if (m.lastPoint && m.lastPoint.at !== this.lastPointAt) {
       this.lastPointAt = m.lastPoint.at;
@@ -329,6 +333,11 @@ export class Court {
     this.ball.hidden = this.shadow.hidden = !b;
     for (const el of this.trail) el.hidden = !b;
     if (!b) return;
+    if (this.ball.dataset.kind !== b.kind) {
+      this.ball.dataset.kind = b.kind;
+      for (const el of this.trail) el.dataset.kind = b.kind;
+    }
+    const peak = SHOT_HEIGHT[b.kind] ?? 16;
     const now = clock.now();
     // Start the ball just in front of the hitter's paddle so it travels toward the net.
     const lift = (p) => ({ x: p.x, y: p.y + (p.y > 50 ? -6 : 6) });
@@ -337,7 +346,7 @@ export class Court {
     const { w, h } = this.size;
     const at = (time) => {
       const t = Math.min(1, Math.max(0, (time - b.launchAt) / (b.arriveAt - b.launchAt)));
-      let height = Math.sin(Math.PI * t) * (b.kind === 'serve' ? 22 : 16);
+      let height = Math.sin(Math.PI * t) * peak;
       if (time > b.arriveAt) {
         const since = time - b.arriveAt;
         height = Math.abs(Math.sin(since / 110)) * 5 * Math.max(0, 1 - since / 700);
