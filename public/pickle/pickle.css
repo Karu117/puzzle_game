@@ -204,7 +204,11 @@ h2, h3, p { margin: 0; }
   z-index: 4;
 }
 .pk-ball-trail { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; will-change: transform; width: 22px; height: 22px; border-radius: 50%; background: var(--ball); }
-.pk-ball-shadow { width: 20px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 45%, transparent); }
+  .pk-ball[data-kind='smash'] { box-shadow: 0 0 0 4px color-mix(in srgb, var(--coral) 70%, transparent); }
+  .pk-ball-trail[data-kind='smash'] { background: var(--coral); }
+  .pk-ball-trail[data-kind='lob'] { opacity: 0.25; }
+  .pk-pop-smash { color: var(--coral); font-size: 22px; }
+  .pk-ball-shadow { width: 20px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 45%, transparent); }
 
 .pk-overlay { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 8%; pointer-events: none; }
 .pk-card {
