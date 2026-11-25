@@ -78,6 +78,14 @@ export function startPolling(onData, onError) {
 export const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+export function showExplain(el, text) {
+  const value = text || '';
+  if (el.dataset.value === value) return;
+  el.dataset.value = value;
+  el.textContent = value;
+  el.hidden = !value;
+}
+
 /* ---------- Avatars ---------- */
 
 const BODY_COLORS = ['#ffb84d', '#7ed6a5', '#7cb8ff', '#ff8fa8', '#b99cff', '#ffd95a', '#5fd3d0', '#ff9a6b', '#a3d65c', '#f59ad8'];
