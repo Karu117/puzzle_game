@@ -225,6 +225,7 @@ function render() {
   const m = state.match;
   const inMatch = playing && m && [m.a, m.b].some((t) => state.teams[t].members.includes(me.playerId));
   $('controls').hidden = !inMatch;
+  $('game').classList.toggle('is-playing', Boolean(inMatch));
   if (inMatch) {
     opponents().forEach((id, i) => {
       aimButtons[i].querySelector('b').textContent = players.get(id)?.name ?? '';
