@@ -215,9 +215,9 @@ function render(data) {
   }
   $('result').textContent = result;
 
-  const next = bank[state.bankIndex];
+  const next = state.nextBankIndex == null ? null : bank[state.nextBankIndex];
   $('next-preview').innerHTML = next
-    ? `<span class="next-label">다음 문제 ${state.bankIndex + 1}/${bank.length}</span><span class="next-text"><b class="ans ans-${next.answer}">${next.answer}</b>${escapeHtml(next.text)}</span>`
+    ? `<span class="next-label">다음 문제 (랜덤) ${state.bankIndex + 1}/${state.orderSize}</span><span class="next-text"><b class="ans ans-${next.answer}">${next.answer}</b>${escapeHtml(next.text)}</span>`
     : `<span class="next-label">문제 은행 소진</span><span class="next-text">직접 문제를 내거나 문제 은행에 추가하세요.</span>`;
 
   const canAsk = (phase === 'lobby' || phase === 'reveal') && alive.length >= 1;
