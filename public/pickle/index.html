@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f3f6f1" />
+    <meta name="description" content="최대 32명이 함께하는 실시간 복식 피클볼 토너먼트. 랜덤으로 짝을 지어 우승을 노려보세요!" />
+    <title>피클볼 배틀</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/pickle/pickle.css" />
+  </head>
+  <body>
+    <main class="pk-app">
+      <section id="join" class="pk-join" aria-labelledby="join-title" hidden>
+        <img src="/pickle/hero.png" alt="" width="1408" height="768" />
+        <h1 id="join-title" class="display">피클볼 배틀</h1>
+        <p class="pk-lead">랜덤으로 2인 1팀이 되어 복식 토너먼트!<br />공이 오면 타이밍 맞춰 받아치세요.</p>
+        <form id="join-form" novalidate>
+          <label for="name" class="sr-only">닉네임</label>
+          <input id="name" class="pk-input" maxlength="10" autocomplete="nickname" placeholder="닉네임 (최대 10자)" required />
+          <button type="submit" class="pk-btn pk-btn-primary">입장하기</button>
+          <p id="join-error" class="pk-error" role="alert"></p>
+        </form>
+        <section class="pk-rules" aria-labelledby="rules-title">
+          <h2 id="rules-title">경기 방법</h2>
+          <ul>
+            <li>공이 나에게 오면 노란 원이 줄어들어요. 원이 딱 맞을 때 누르면 <b>PERFECT</b>!</li>
+            <li>버튼으로 받아칠 상대를 골라요. PERFECT로 치면 공이 더 빨라져요.</li>
+            <li>제때 못 치면 상대 팀 득점. 정해진 점수를 먼저 내면 승리!</li>
+            <li>경기에 나가지 않는 참가자는 실시간으로 관전해요.</li>
+          </ul>
+        </section>
+      </section>
+
+      <section id="game" class="pk-stack" hidden>
+        <header class="pk-top">
+          <span class="pk-brand">피클볼 배틀</span>
+          <span id="me-chip" class="pk-me-chip"></span>
+        </header>
+
+        <div id="status" class="pk-status" role="status"></div>
+
+        <section id="lobby" class="pk-panel" aria-labelledby="lobby-title" hidden>
+          <div class="pk-panel-head">
+            <h2 id="lobby-title">대기실</h2>
+            <span id="lobby-count" class="pk-sub"></span>
+          </div>
+          <ul id="roster" class="pk-roster"></ul>
+        </section>
+
+        <div id="scoreboard" class="pk-scoreboard" hidden></div>
+        <div id="court" hidden></div>
+
+        <section id="controls" class="pk-controls" aria-label="받아치기" hidden>
+          <p id="hint" class="pk-hint" aria-live="polite"></p>
+          <div id="aim" class="pk-aim">
+            <button type="button" class="pk-btn" data-aim="0" disabled><span>왼쪽 상대에게</span><b></b></button>
+            <button type="button" class="pk-btn" data-aim="1" disabled><span>오른쪽 상대에게</span><b></b></button>
+          </div>
+          <p class="pk-keys">키보드: ← / → 방향키</p>
+        </section>
+
+        <section id="ceremony" class="pk-ceremony" aria-labelledby="ceremony-title" hidden>
+          <canvas id="fireworks" aria-hidden="true"></canvas>
+          <h2 id="ceremony-title">우승을 축하합니다!</h2>
+          <div id="podium"></div>
+        </section>
+
+        <section id="bracket-panel" class="pk-panel" aria-labelledby="bracket-title" hidden>
+          <h2 id="bracket-title">대진표</h2>
+          <div id="bracket" class="pk-bracket"></div>
+        </section>
+
+        <button id="leave" type="button" class="pk-link">나가기</button>
+      </section>
+    </main>
+    <script type="module" src="/pickle/player.js"></script>
+  </body>
+</html>
