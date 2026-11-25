@@ -1,4 +1,4 @@
-import { api, startPolling, Arena, avatarSvg, renderTimer, renderCeremony, escapeHtml } from '/common.js';
+import { api, startPolling, Arena, avatarSvg, renderTimer, renderCeremony, escapeHtml, showExplain } from '/common.js';
 
 const $ = (id) => document.getElementById(id);
 const PIN_KEY = 'oxq:pin';
@@ -100,8 +100,12 @@ $('custom-form').addEventListener('submit', (e) => {
     return;
   }
   const answer = new FormData(e.target).get('custom-answer');
-  run(e.submitter, 'ask', { text, answer, seconds: Number($('seconds').value) }).then(() => {
-    if (latest?.state.question?.text === text) $('custom-text').value = '';
+  const explain = $('custom-explain').value.trim();
+  run(e.submitter, 'ask', { text, answer, explain, seconds: Number($('seconds').value) }).then(() => {
+    if (latest?.state.question?.text === text) {
+      $('custom-text').value = '';
+      $('custom-explain').value = '';
+    }
   });
 });
 
@@ -153,7 +157,9 @@ $('prize-form').addEventListener('submit', async (e) => {
 
 function renderBank() {
   const ta = $('bank');
-  if (document.activeElement !== ta) ta.value = bank.map((q) => `${q.answer} ${q.text}`).join('\n');
+  if (document.activeElement !== ta) {
+    ta.value = bank.map((q) => `${q.answer} ${q.text}${q.explain ? ` // ${q.explain}` : ''}`).join('\n');
+  }
 }
 
 $('bank-form').addEventListener('submit', async (e) => {
@@ -164,7 +170,9 @@ $('bank-form').addEventListener('submit', async (e) => {
     .filter(Boolean)
     .map((line) => {
       const m = line.match(/^([OoXx])[\s.:|)-]+(.+)$/);
-      return m ? { answer: m[1].toUpperCase(), text: m[2].trim() } : null;
+      if (!m) return null;
+      const [text, ...rest] = m[2].split('//');
+      return text.trim() ? { answer: m[1].toUpperCase(), text: text.trim(), explain: rest.join('//').trim() } : null;
     });
   const bad = parsed.findIndex((q) => !q);
   if (bad !== -1) {
@@ -199,6 +207,7 @@ function render(data) {
     $('q-kicker').textContent = phase === 'reveal' || phase === 'ceremony' ? `정답은 ${state.question.answer}!` : `문제 ${state.round}`;
     $('q-text').textContent = state.question.text;
   }
+  showExplain($('q-explain'), phase === 'reveal' || phase === 'ceremony' ? state.question?.explain : '');
 
   arena.render(data);
 

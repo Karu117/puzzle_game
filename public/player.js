@@ -1,4 +1,4 @@
-import { api, startPolling, Arena, avatarSvg, renderTimer, renderCeremony } from '/common.js';
+import { api, startPolling, Arena, avatarSvg, renderTimer, renderCeremony, showExplain } from '/common.js';
 
 const $ = (id) => document.getElementById(id);
 const SESSION_KEY = 'oxq:me';
@@ -191,6 +191,7 @@ function render(raw) {
     kicker.textContent = state.phase === 'reveal' ? `정답은 ${state.question.answer}!` : `문제 ${state.round}`;
     text.textContent = state.question.text;
   }
+  showExplain($('q-explain'), state.phase === 'reveal' ? state.question?.explain : '');
 
   arena.render(data);
 
