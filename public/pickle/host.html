@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f3f6f1" />
+    <meta name="robots" content="noindex" />
+    <title>피클볼 배틀 · 진행자</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/pickle/pickle.css" />
+  </head>
+  <body>
+    <main class="pk-app pk-host">
+      <form id="login" class="pk-panel pk-login" novalidate>
+        <h1 class="display" style="font-size: 28px">피클볼 배틀 진행자</h1>
+        <label for="pin">진행자 PIN</label>
+        <input id="pin" class="pk-input" type="password" inputmode="numeric" autocomplete="current-password" required />
+        <button type="submit" class="pk-btn pk-btn-primary">들어가기</button>
+        <p id="login-error" class="pk-error" role="alert"></p>
+      </form>
+
+      <div id="dash" hidden>
+        <header class="pk-top">
+          <span class="pk-brand">피클볼 배틀 · 진행자</span>
+          <span id="storage" class="pk-sub"></span>
+        </header>
+        <p id="host-error" class="pk-error" role="alert"></p>
+
+        <div class="pk-host-grid">
+          <div class="pk-host-main">
+            <section id="lobby-panel" class="pk-panel" aria-labelledby="lobby-title">
+              <h2 id="lobby-title">참가 주소</h2>
+              <p id="join-url" class="pk-join-url"></p>
+              <p class="pk-sub">참가자는 휴대폰으로 이 주소에 접속해 닉네임을 입력하면 돼요. (최대 32명)</p>
+              <div class="pk-row">
+                <span class="pk-big-count" id="count">0</span><span class="pk-sub">명 대기 중</span>
+              </div>
+              <div class="pk-row">
+                <span>승리 점수</span>
+                <div id="target" class="pk-seg" role="group" aria-label="승리 점수">
+                  <button type="button" data-v="3">3</button>
+                  <button type="button" data-v="5">5</button>
+                  <button type="button" data-v="7">7</button>
+                  <button type="button" data-v="11">11</button>
+                </div>
+              </div>
+              <p id="team-preview" class="pk-sub"></p>
+              <button id="start" type="button" class="pk-btn pk-btn-primary">토너먼트 시작</button>
+            </section>
+
+            <div id="scoreboard" class="pk-scoreboard" hidden></div>
+            <div id="court" hidden></div>
+            <section id="match-tools" class="pk-panel" aria-labelledby="tools-title" hidden>
+              <h2 id="tools-title">경기 진행</h2>
+              <p class="pk-sub">참가자가 응답하지 않으면 승자를 직접 정할 수 있어요.</p>
+              <div class="pk-row">
+                <button id="decide-0" type="button" class="pk-btn pk-btn-sm"></button>
+                <button id="decide-1" type="button" class="pk-btn pk-btn-sm"></button>
+              </div>
+            </section>
+
+            <section id="ceremony" class="pk-ceremony" aria-labelledby="ceremony-title" hidden>
+              <canvas id="fireworks" aria-hidden="true"></canvas>
+              <h2 id="ceremony-title">우승을 축하합니다!</h2>
+              <div id="podium"></div>
+            </section>
+          </div>
+
+          <div class="pk-host-side">
+            <section class="pk-panel" aria-labelledby="bracket-title">
+              <h2 id="bracket-title">대진표</h2>
+              <div id="bracket" class="pk-bracket"></div>
+            </section>
+            <section class="pk-panel" aria-labelledby="players-title">
+              <div class="pk-panel-head">
+                <h2 id="players-title">참가자</h2>
+                <span id="players-count" class="pk-sub"></span>
+              </div>
+              <ul id="roster" class="pk-roster"></ul>
+            </section>
+            <section class="pk-panel" aria-labelledby="game-title">
+              <h2 id="game-title">게임 관리</h2>
+              <div class="pk-row">
+                <button id="to-lobby" type="button" class="pk-btn pk-btn-sm">참가자 유지하고 새 토너먼트</button>
+                <button id="reset" type="button" class="pk-btn pk-btn-sm pk-btn-ghost">전체 초기화</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/pickle/host.js"></script>
+  </body>
+</html>

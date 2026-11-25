@@ -10,6 +10,7 @@ for (const file of ['.env.development.local', '.env.local', '.env']) {
   } catch {}
 }
 const { default: handler } = await import('./api/game.js');
+const { default: pickleHandler } = await import('./api/pickle.js');
 
 const PUBLIC_DIR = fileURLToPath(new URL('./public/', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -24,11 +25,18 @@ const TYPES = {
   '.json': 'application/json',
 };
 
-const ROUTES = { '/': 'index.html', '/host': 'host.html' };
+const ROUTES = {
+  '/': 'index.html',
+  '/host': 'host.html',
+  '/pickle': 'pickle/index.html',
+  '/pickle/': 'pickle/index.html',
+  '/pickle/host': 'pickle/host.html',
+};
 
 createServer(async (req, res) => {
   const { pathname } = new URL(req.url, 'http://localhost');
   if (pathname === '/api/game') return handler(req, res);
+  if (pathname === '/api/pickle') return pickleHandler(req, res);
 
   const file = ROUTES[pathname] || normalize(pathname).replace(/^(\.\.[/\\])+/, '').slice(1);
   try {
